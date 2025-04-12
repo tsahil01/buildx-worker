@@ -1,0 +1,29 @@
+{
+  "name": "buildx-worker",
+  "version": "1.0.0",
+  "description": "A worker which interacts with docker containers &amp; buildx frontend",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tsahil01/buildx-worker.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/tsahil01/buildx-worker/issues"
+  },
+  "homepage": "https://github.com/tsahil01/buildx-worker#readme",
+  "dependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "zod": "^3.24.2"
+  }
+}
