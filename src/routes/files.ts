@@ -1,8 +1,7 @@
 import { Router } from 'express';
-import { execAsync } from '../config';
+import { execAsync, isRunning } from '../config';
 
 export const fileRouter = Router();
-
 
 fileRouter.post("/create", async (req: any, res: any) => {
     try {
@@ -21,10 +20,8 @@ fileRouter.post("/create", async (req: any, res: any) => {
         }
 
         // Check if the container is running
-        const { stdout } = await execAsync(`docker inspect -f '{{.State.Running}}' ${containerId}`);
-        const isRunning = stdout.trim() === 'true';
-
-        if (!isRunning) {
+        const containerRunning = await isRunning(containerId);
+        if (!containerRunning) {
             return res.status(400).json({ error: "Container is not running" });
         }
 
@@ -115,12 +112,11 @@ fileRouter.get("/", async (req: any, res: any) => {
         const filePath = path.toString();
 
         // Check if the container is running
-        const { stdout: inspectStdout } = await execAsync(`docker inspect -f '{{.State.Running}}' ${containerId}`);
-        const isRunning = inspectStdout.trim() === 'true';
-
-        if (!isRunning) {
+        const containerRunning = await isRunning(containerId);
+        if (!containerRunning) {
             return res.status(400).json({ error: "Container is not running" });
         }
+
         const { stdout: lsStdout, stderr: lsStderr } = await execAsync(`docker exec ${containerId} ls -l "${filePath}"`);
         if (lsStderr) {
             if (lsStderr.includes("No such file or directory")) {
@@ -176,9 +172,9 @@ fileRouter.get('/structure', async (req: any, res: any) => {
         if (!path) {
             return res.status(400).json({ error: "Path is required" });
         }
-        const { stdout: inspectStdout } = await execAsync(`docker inspect -f '{{.State.Running}}' ${containerId}`);
-        const isRunning = inspectStdout.trim() === 'true';
-        if (!isRunning) {
+        // Check if the container is running
+        const containerRunning = await isRunning(containerId);
+        if (!containerRunning) {
             return res.status(400).json({ error: "Container is not running" });
         }
         const { stdout, stderr } = await execAsync(`docker exec ${containerId} ls "${path}"`);
@@ -189,7 +185,7 @@ fileRouter.get('/structure', async (req: any, res: any) => {
             return res.status(500).json({ error: "Failed to list files", details: stderr });
         }
         const files = stdout.split('\n');
-        
+
         return res.json({
             containerId,
             path,
@@ -224,10 +220,8 @@ fileRouter.delete("/", async (req: any, res: any) => {
         }
 
         // Check if the container is running
-        const { stdout } = await execAsync(`docker inspect -f '{{.State.Running}}' ${containerId}`);
-        const isRunning = stdout.trim() === 'true';
-
-        if (!isRunning) {
+        const containerRunning = await isRunning(containerId);
+        if (!containerRunning) {
             return res.status(400).json({ error: "Container is not running" });
         }
 

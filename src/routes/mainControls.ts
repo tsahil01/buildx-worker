@@ -86,7 +86,7 @@ mainRouter.post("/stop", async (req: any, res: any) => {
     }
 });
 
-mainRouter.post("/ping", async (req: any, res: any) => {
+mainRouter.get("/ping", async (req: any, res: any) => {
     try {
         const { containerId } = req.query;
 
