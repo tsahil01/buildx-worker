@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.use('/', mainRouter);
 router.use('/exec', exacRouter)
-router.use('/files', fileRouter);
+router.use('/file', fileRouter);
 
 
 

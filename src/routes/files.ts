@@ -1,10 +1,10 @@
-
-import { Router } from "express";
-import { execAsync } from "../config";
+import { Router } from 'express';
+import { execAsync } from '../config';
 
 export const fileRouter = Router();
 
-fileRouter.post("/", async (req: any, res: any) => {
+
+fileRouter.post("/create", async (req: any, res: any) => {
     try {
         const { containerId, files, workdir } = req.body;
 
@@ -45,13 +45,19 @@ fileRouter.post("/", async (req: any, res: any) => {
             }
 
             try {
+                // Create the file path
                 const filePath = `${workdir}/${file.name}`;
 
+                // Get the directory part of the file path
                 const dirPath = filePath.substring(0, filePath.lastIndexOf('/'));
 
+                // Ensure the directory exists
                 await execAsync(`docker exec ${containerId} mkdir -p ${dirPath}`);
 
+                // Write file content to container
+                // We encode the content to handle special characters and new lines
                 const encodedContent = Buffer.from(file.content).toString('base64');
+
                 await execAsync(`docker exec ${containerId} /bin/sh -c "echo '${encodedContent}' | base64 -d > ${filePath}"`);
 
                 results.push({
@@ -97,15 +103,124 @@ fileRouter.post("/", async (req: any, res: any) => {
 
 fileRouter.get("/", async (req: any, res: any) => {
     try {
-        const { containerId, workdir } = req.query;
-        console.log("Request query:", req.query);
+        const { containerId, path } = req.query;
 
         if (!containerId) {
             return res.status(400).json({ error: "Container ID is required" });
         }
 
-        if (!workdir) {
-            return res.status(400).json({ error: "Workdir is required" });
+        if (!path) {
+            return res.status(400).json({ error: "Path is required" });
+        }
+        const filePath = path.toString();
+
+        // Check if the container is running
+        const { stdout: inspectStdout } = await execAsync(`docker inspect -f '{{.State.Running}}' ${containerId}`);
+        const isRunning = inspectStdout.trim() === 'true';
+
+        if (!isRunning) {
+            return res.status(400).json({ error: "Container is not running" });
+        }
+        const { stdout: lsStdout, stderr: lsStderr } = await execAsync(`docker exec ${containerId} ls -l "${filePath}"`);
+        if (lsStderr) {
+            if (lsStderr.includes("No such file or directory")) {
+                return res.status(404).json({ error: "Path not found", path: filePath });
+            }
+            return res.status(500).json({ error: "Failed to list files", details: lsStderr });
+        }
+
+        const { stdout: fileContentStdout, stderr: fileContentStderr } = await execAsync(`docker exec ${containerId} cat "${filePath}"`);
+        if (fileContentStderr) {
+            if (fileContentStderr.includes("No such file or directory")) {
+                return res.status(404).json({ error: "File not found", path: filePath });
+            }
+            return res.status(500).json({ error: "Failed to read file", details: fileContentStderr });
+        }
+        const fileContent = fileContentStdout.trim();
+        const fileType = lsStdout.startsWith("d") ? "directory" : "file";
+        const fileName = filePath.substring(filePath.lastIndexOf("/") + 1);
+        const fileDir = filePath.substring(0, filePath.lastIndexOf("/"));
+        return res.json({
+            containerId,
+            fileName,
+            fileDir,
+            fileType,
+            fileContent,
+            success: true
+        })
+
+    } catch (error) {
+        console.error("Error retrieving files from container:", error);
+
+        if ((error as Error).message.includes("No such container")) {
+            return res.status(404).json({
+                error: "Container not found",
+                containerId: req.query.containerId
+            });
+        }
+
+        res.status(500).json({
+            error: "Failed to retrieve files from container",
+            details: (error as Error).message,
+            success: false
+        });
+    }
+});
+
+fileRouter.get('/structure', async (req: any, res: any) => {
+    try {
+        const { containerId, path } = req.query;
+        if (!containerId) {
+            return res.status(400).json({ error: "Container ID is required" });
+        }
+        if (!path) {
+            return res.status(400).json({ error: "Path is required" });
+        }
+        const { stdout: inspectStdout } = await execAsync(`docker inspect -f '{{.State.Running}}' ${containerId}`);
+        const isRunning = inspectStdout.trim() === 'true';
+        if (!isRunning) {
+            return res.status(400).json({ error: "Container is not running" });
+        }
+        const { stdout, stderr } = await execAsync(`docker exec ${containerId} ls "${path}"`);
+        if (stderr) {
+            if (stderr.includes("No such file or directory")) {
+                return res.status(404).json({ error: "Path not found", path });
+            }
+            return res.status(500).json({ error: "Failed to list files", details: stderr });
+        }
+        const files = stdout.split('\n');
+        
+        return res.json({
+            containerId,
+            path,
+            files
+        });
+    } catch (error) {
+        console.error("Error retrieving directory structure from container:", error);
+        if ((error as Error).message.includes("No such container")) {
+            return res.status(404).json({
+                error: "Container not found",
+                containerId: req.query.containerId
+            });
+        }
+        res.status(500).json({
+            error: "Failed to retrieve directory structure from container",
+            details: (error as Error).message,
+            success: false
+        });
+    }
+})
+
+fileRouter.delete("/", async (req: any, res: any) => {
+    try {
+        const { containerId, path } = req.body;
+
+        if (!containerId) {
+            return res.status(400).json({ error: "Container ID is required" });
+        }
+
+        if (!path) {
+            return res.status(400).json({ error: "Path is required" });
         }
 
         // Check if the container is running
@@ -116,27 +231,26 @@ fileRouter.get("/", async (req: any, res: any) => {
             return res.status(400).json({ error: "Container is not running" });
         }
 
-        const { stdout: files } = await execAsync(`docker exec ${containerId} ls -1 ${workdir}`);
+        // Delete the file or directory
+        await execAsync(`docker exec ${containerId} rm -rf "${path}"`);
 
         res.json({
             containerId,
-            workdir,
-            files: files.trim().split('\n'),
+            path,
             success: true
         });
-
     } catch (error) {
-        console.error("Error listing files in container:", error);
+        console.error("Error deleting files in container:", error);
 
         if ((error as Error).message.includes("No such container")) {
             return res.status(404).json({
                 error: "Container not found",
-                containerId: req.query.containerId
+                containerId: req.body.containerId
             });
         }
 
         res.status(500).json({
-            error: "Failed to list files in container",
+            error: "Failed to delete files in container",
             details: (error as Error).message,
             success: false
         });
