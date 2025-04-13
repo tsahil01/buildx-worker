@@ -39,3 +39,8 @@ export const getFileType = z.object({
     containerId: z.string(),
     path: z.string(),
 })
+
+export const tunnelType = z.object({
+    containerId: z.string(),
+    port: z.number(),
+});
