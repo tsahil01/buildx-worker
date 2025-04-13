@@ -1,23 +1,19 @@
 import { Router } from 'express';
 import { execAsync, isRunning } from '../config';
+import { fileCreateType, getFileType } from '../types';
 
 export const fileRouter = Router();
 
 fileRouter.post("/create", async (req: any, res: any) => {
     try {
-        const { containerId, files, workdir } = req.body;
-
-        if (!containerId) {
-            return res.status(400).json({ error: "Container ID is required" });
+        const parsedBody = fileCreateType.safeParse(req.body);
+        if (!parsedBody.success) {
+            return res.status(400).json({
+                error: "Invalid request body",
+                details: parsedBody.error.errors
+            });
         }
-
-        if (!files || !Array.isArray(files) || files.length === 0) {
-            return res.status(400).json({ error: "Files array is required" });
-        }
-
-        if (!workdir) {
-            return res.status(400).json({ error: "Workdir is required" });
-        }
+        const { containerId, files, workdir } = parsedBody.data;
 
         // Check if the container is running
         const containerRunning = await isRunning(containerId);
@@ -100,15 +96,15 @@ fileRouter.post("/create", async (req: any, res: any) => {
 
 fileRouter.get("/", async (req: any, res: any) => {
     try {
-        const { containerId, path } = req.query;
-
-        if (!containerId) {
-            return res.status(400).json({ error: "Container ID is required" });
+        const parsedQuery = getFileType.safeParse(req.query);
+        if (!parsedQuery.success) {
+            return res.status(400).json({
+                error: "Invalid request query",
+                details: parsedQuery.error.errors
+            });
         }
+        const { containerId, path } = parsedQuery.data;
 
-        if (!path) {
-            return res.status(400).json({ error: "Path is required" });
-        }
         const filePath = path.toString();
 
         // Check if the container is running
@@ -165,13 +161,15 @@ fileRouter.get("/", async (req: any, res: any) => {
 
 fileRouter.get('/structure', async (req: any, res: any) => {
     try {
-        const { containerId, path } = req.query;
-        if (!containerId) {
-            return res.status(400).json({ error: "Container ID is required" });
+        const parsedQuery = getFileType.safeParse(req.query);
+        if (!parsedQuery.success) {
+            return res.status(400).json({
+                error: "Invalid request query",
+                details: parsedQuery.error.errors
+            });
         }
-        if (!path) {
-            return res.status(400).json({ error: "Path is required" });
-        }
+        const { containerId, path } = parsedQuery.data;
+
         // Check if the container is running
         const containerRunning = await isRunning(containerId);
         if (!containerRunning) {
@@ -209,15 +207,14 @@ fileRouter.get('/structure', async (req: any, res: any) => {
 
 fileRouter.delete("/", async (req: any, res: any) => {
     try {
-        const { containerId, path } = req.body;
-
-        if (!containerId) {
-            return res.status(400).json({ error: "Container ID is required" });
+        const parsedBody = getFileType.safeParse(req.body);
+        if (!parsedBody.success) {
+            return res.status(400).json({
+                error: "Invalid request body",
+                details: parsedBody.error.errors
+            });
         }
-
-        if (!path) {
-            return res.status(400).json({ error: "Path is required" });
-        }
+        const { containerId, path } = parsedBody.data;
 
         // Check if the container is running
         const containerRunning = await isRunning(containerId);

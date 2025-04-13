@@ -1,20 +1,18 @@
 import { Router } from "express";
 import { execAsync } from "../config";
 import { spawn } from 'child_process';
+import { exacType } from "../types";
 
 export const exacRouter = Router();
 
 exacRouter.post("/", async (req: any, res: any) => {
     try {
-        const { containerId, command, workdir } = req.body;
-
-        if (!containerId) {
-            return res.status(400).json({ error: "Container ID is required" });
+        const parsedBody = exacType.safeParse(req.body);
+        if (!parsedBody.success) {
+            return res.status(400).json({ error: "Invalid request body", details: parsedBody.error });
         }
+        const { containerId, command, workdir } = parsedBody.data;
 
-        if (!command) {
-            return res.status(400).json({ error: "Command is required" });
-        }
         let execCommand = `docker exec`;
         if (workdir) {
             execCommand += ` -w ${workdir}`;
@@ -51,15 +49,11 @@ exacRouter.post("/", async (req: any, res: any) => {
 
 exacRouter.post("/stream", (req: any, res: any) => {
     try {
-        const { containerId, command, workdir } = req.body;
-
-        if (!containerId) {
-            return res.status(400).json({ error: "Container ID is required" });
-        }
-
-        if (!command) {
-            return res.status(400).json({ error: "Command is required" });
-        }
+        const parsedBody = exacType.safeParse(req.body);
+        if (!parsedBody.success) {
+            return res.status(400).json({ error: "Invalid request body", details: parsedBody.error });
+        }   
+        const { containerId, command, workdir } = parsedBody.data;
 
         let execCommand = `docker exec`;
 

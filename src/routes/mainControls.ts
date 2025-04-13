@@ -1,15 +1,19 @@
 import { Router } from "express";
-import { execAsync } from "../config";
+import { execAsync, isRunning } from "../config";
+import { containerIdType, startType } from "../types";
 
 export const mainRouter = Router();
 
 mainRouter.post("/start", async (req: any, res: any) => {
     try {
-        const { image, name, ports, volumes, env, command } = req.body;
-
-        if (!image) {
-            return res.status(400).json({ error: "Container image is required" });
+        const parsedBody = startType.safeParse(req.body);
+        if (!parsedBody.success) {
+            return res.status(400).json({
+                error: "Invalid request body",
+                details: parsedBody.error.errors
+            });
         }
+        const { image, name, ports, volumes, env, command } = parsedBody.data;
 
         let dockerCommand = `docker run -d`;
 
@@ -63,11 +67,14 @@ mainRouter.post("/start", async (req: any, res: any) => {
 
 mainRouter.post("/stop", async (req: any, res: any) => {
     try {
-        const { containerId } = req.body;
-
-        if (!containerId) {
-            return res.status(400).json({ error: "Container ID is required" });
+        const parsedBody = containerIdType.safeParse(req.body);
+        if (!parsedBody.success) {
+            return res.status(400).json({
+                error: "Invalid request body",
+                details: parsedBody.error.errors
+            });
         }
+        const { containerId } = parsedBody.data;
 
         await execAsync(`docker stop ${containerId}`);
         await execAsync(`docker rm ${containerId}`);
@@ -88,15 +95,17 @@ mainRouter.post("/stop", async (req: any, res: any) => {
 
 mainRouter.get("/ping", async (req: any, res: any) => {
     try {
-        const { containerId } = req.query;
-
-        if (!containerId) {
-            return res.status(400).json({ error: "Container ID is required" });
+        const parsedQuery = containerIdType.safeParse(req.query);
+        if (!parsedQuery.success) {
+            return res.status(400).json({
+                error: "Invalid request query",
+                details: parsedQuery.error.errors
+            });
         }
-        const { stdout } = await execAsync(`docker inspect -f '{{.State.Running}}' ${containerId}`);
-        const isRunning = stdout.trim() === 'true';
+        const { containerId } = parsedQuery.data;
 
-        if (isRunning) {
+        const containerRunning = await isRunning(containerId);
+        if (containerRunning) {
             res.json({
                 containerId,
                 status: "running",
