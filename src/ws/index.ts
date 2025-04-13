@@ -22,7 +22,7 @@ export async function wsSetup(ws: ws, req: IncomingMessage) {
                         ws.close();
                         return;
                     }
-                    shell = pty.spawn("docker", ["exec", "-it", containerId, "/bin/sh"], {
+                    shell = pty.spawn("docker", ["exec", "-it", containerId, "/bin/bash"], {
                         name: "xterm-color",
                         cols: 500,
                         rows: 100,
