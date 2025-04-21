@@ -1,6 +1,7 @@
 import * as pty from "node-pty";
 import ws from "ws";
 import { IncomingMessage } from "http";
+import { execAsync } from "../config";
 
 export async function wsSetup(ws: ws, req: IncomingMessage) {
     const clientIP = req.socket.remoteAddress || "unknown";
@@ -53,12 +54,21 @@ export async function wsSetup(ws: ws, req: IncomingMessage) {
         }
     });
 
-    ws.on("close", () => {
+    ws.on("close", async () => {
         if (shell) {
             console.log(`WebSocket closed by ${clientIP}, killing shell process for container ${containerId}`);
             shell.kill();
         } else {
             console.log(`WebSocket closed by ${clientIP}, but no shell was active.`);
+        }
+        if (containerId) {
+            try {
+                await execAsync(`docker stop ${containerId}`);
+                await execAsync(`docker rm ${containerId}`);
+                console.log(`Container ${containerId} stopped and removed.`);
+            } catch (error) {
+                console.error(`Failed to stop/remove container ${containerId}:`, error);
+            }
         }
     });
 
