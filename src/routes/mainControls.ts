@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { execAsync, isRunning } from "../config";
 import { containerIdType, startType } from "../types";
+import { nanoid } from 'nanoid';
 
 export const mainRouter = Router();
 
@@ -15,11 +16,31 @@ mainRouter.post("/start", async (req: any, res: any) => {
         }
         const { image, name, ports, volumes, env, command } = parsedBody.data;
 
+        const uniqueId = name ? name.replace(/[^a-z0-9]/gi, '-').toLowerCase() : `app-${nanoid(8)}`;
+        const subdomain = `${uniqueId}.worker.buildx.website`;
+
         let dockerCommand = `docker run -d`;
 
-        if (name) {
-            dockerCommand += ` --name ${name}`;
+        if (name) dockerCommand += ` --name ${name}`;
+
+        dockerCommand += ` --network traefik-proxy-net`;
+
+        dockerCommand += ` --label "traefik.enable=true"`;
+        dockerCommand += ` --label "traefik.http.routers.${uniqueId}.rule=Host(\\"${subdomain}\\")"`;
+        dockerCommand += ` --label "traefik.http.routers.${uniqueId}.entrypoints=websecure"`;
+        dockerCommand += ` --label "traefik.http.routers.${uniqueId}.tls.certresolver=le_resolver"`;
+
+        let exposedPort = "3000";
+        if (ports && Array.isArray(ports) && ports.length > 0) {
+            const portMatch = ports[0].match(/:(\d+)$/);
+            if (portMatch) {
+                exposedPort = portMatch[1];
+            } else {
+                exposedPort = ports[0].split(':')[0];
+            }
         }
+
+        dockerCommand += ` --label "traefik.http.services.${uniqueId}.loadbalancer.server.port=${exposedPort}"`;
 
         if (ports && Array.isArray(ports)) {
             ports.forEach(port => {
@@ -41,20 +62,22 @@ mainRouter.post("/start", async (req: any, res: any) => {
 
         dockerCommand += ` ${image}`;
 
-        // Add command if provided, otherwise default to tail -f /dev/null to keep container running
         if (command) {
             dockerCommand += ` ${command}`;
         } else {
             dockerCommand += ` tail -f /dev/null`;
         }
 
-        const { stdout } = await execAsync(dockerCommand);
-        const containerId = stdout.trim();
+        console.log("Docker command:", dockerCommand);
+
+        // const { stdout } = await execAsync(dockerCommand);
+        const containerId = ""
 
         res.status(201).json({
             containerId,
             status: "running",
-            message: "Container started successfully"
+            message: "Container started successfully",
+            url: `https://${subdomain}`
         });
     } catch (error) {
         console.error("Error starting container:", error);
@@ -64,6 +87,16 @@ mainRouter.post("/start", async (req: any, res: any) => {
         });
     }
 });
+
+
+
+
+
+
+
+
+
+
 
 mainRouter.post("/stop", async (req: any, res: any) => {
     try {
