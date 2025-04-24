@@ -4,7 +4,7 @@ export interface FileType {
     type: "file" | "directory"
     content?: string
     children?: FileType[]
-    path:   string
+    path: string
 }
 
 export const startType = z.object({
@@ -44,3 +44,7 @@ export const tunnelType = z.object({
     containerId: z.string(),
     port: z.number(),
 });
+
+export interface SubdomainType {
+    [port: number]: string;
+}
