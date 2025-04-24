@@ -70,10 +70,8 @@ mainRouter.post("/start", async (req: any, res: any) => {
             dockerCommand += ` tail -f /dev/null`;
         }
 
-        console.log("Docker command:", dockerCommand);
-
-        // const { stdout } = await execAsync(dockerCommand);
-        const containerId = 'stdout.trim()';
+        const { stdout } = await execAsync(dockerCommand);
+        const containerId = stdout.trim();
 
         res.status(201).json({
             containerId,
