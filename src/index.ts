@@ -3,8 +3,6 @@ import cors from "cors";
 import dotenv from "dotenv";
 import http from "http";
 import ws from "ws";
-import * as pty from "node-pty";
-
 
 import { router } from "./routes";
 import { wsSetup } from "./ws";
